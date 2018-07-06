@@ -7,27 +7,41 @@
 //
 
 import UIKit
+import Alamofire
+import SwiftyJSON
+import AlamofireImage
 
 private let reuseIdentifier = "Cell"
 
-class FavoritesViewController: UICollectionViewController {
+class FavoriteCell: UICollectionViewCell {
+    @IBOutlet var authorLabel: UILabel!
+    @IBOutlet var catLabel: UILabel!
+    
+    
+    func updateView(from quote: Quote){
+        authorLabel.text = quote.author
+        catLabel.text = quote.cat
+        
+    }
+}
 
+class FavoritesViewController: UICollectionViewController {
+    var quotes: [Quote] = []
+    
+    @IBOutlet weak var noFavoritesLabel: UILabel!
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        noFavoritesLabel.isHidden = true
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
 
         // Register cell classes
-        self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
+        //self.collectionView!.register(UICollectionViewCell.self, forCellWithReuseIdentifier: reuseIdentifier)
 
         // Do any additional setup after loading the view.
     }
 
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
-    }
+
 
     /*
     // MARK: - Navigation
@@ -43,20 +57,20 @@ class FavoritesViewController: UICollectionViewController {
 
     override func numberOfSections(in collectionView: UICollectionView) -> Int {
         // #warning Incomplete implementation, return the number of sections
-        return 0
+        return 1
     }
 
 
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of items
-        return 0
+        return quotes.count
     }
 
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath)
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath) as! FavoriteCell
     
         // Configure the cell
-    
+        cell.updateView(from: quotes[indexPath.row])
         return cell
     }
 
@@ -90,5 +104,40 @@ class FavoritesViewController: UICollectionViewController {
     
     }
     */
+    override func viewDidAppear(_ animated: Bool) {
+        updateData()
+    }
+    
+    func updateData() {
+        let store = iQuoteStore()
+        let favoriteQuotes = store.favoriteQuoteAsString()
+        if favoriteQuotes.isEmpty {
+            self.quotes  = []
+            collectionView!.reloadData()
+            noFavoritesLabel.isHidden = false
+            return
+        }
+        Alamofire.request(QuoteApi.getHundredQuotes)
+            .validate()
+            .responseJSON(completionHandler: {response in
+                switch response.result{
+                case .success(let value):
+                    let json = JSON(value)
+                    print(json)
+                    //let error = json["status"].stringValue
+                    if response.response?.statusCode == 200 {
+                        //print(response.value as Any)
+                        self.quotes = Quote.buildAll(from: JSON(value).arrayValue)
+                        //let quote = Quote.buildAll(from: json.arrayValue)
+                        //let quote = Quote.build(from: JSON(value).arrayValue)
+                        // print("Found \(quote.count) Quotes")
+                        self.collectionView?.reloadData()
+                    }
+                case .failure(let error):
+                    print("Networking Error: \(error.localizedDescription)" )
+                }
+                
+            })
+    }
 
 }
